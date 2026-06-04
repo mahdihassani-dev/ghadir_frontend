@@ -10,7 +10,6 @@ import {
   BookOpen 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import html2canvas from 'html2canvas';
 
 interface Hadith {
   persian_text: string;
@@ -20,14 +19,12 @@ interface Hadith {
 const EidGhadirPage = () => {
   const [currentHadith, setCurrentHadith] = useState<Hadith | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSharing, setIsSharing] = useState(false); // اضافه شدن حالت لودینگ برای دکمه شیر
   const [showHadith, setShowHadith] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [pausedManually, setPausedManually] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hadithRef = useRef<HTMLDivElement | null>(null);
-  const captureRef = useRef<HTMLDivElement | null>(null); // Ref جدید برای گرفتن عکس
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -58,7 +55,7 @@ const EidGhadirPage = () => {
 
       setTimeout(() => setShowHadith(true), 150);
 
-      toast.success('حدیث جدیدی دریافت شد');
+      toast.success('حدیث جدید دریافت شد');
 
       const audio = audioRef.current;
       if (audio && audio.paused && !pausedManually) {
@@ -92,72 +89,38 @@ const EidGhadirPage = () => {
     }
   };
 
-  const handleShare = async () => {
+  // نسخه سریع و سازگار با HTTP برای کپی کردن متن
+  const handleShare = () => {
     if (!currentHadith) return;
-    setIsSharing(true);
 
     const siteUrl = window.location.href;
-    const captionText = `به مناسبت عید غدیر 🌿\n\nتو هم یک حدیث بخوان:\n${siteUrl}`;
-    const fullTextFallback = `به مناسبت عید غدیر 🌿\nروحت را با حدیثی از مولای متقیان سیراب کن:\n\n"${currentHadith.arabic_text}"\n\n${currentHadith.persian_text}\n\nتو هم یک حدیث بخوان:\n${siteUrl}`;
+    const shareText = `به مناسبت عید غدیر 🌿\nروحت را با حدیثی از مولای متقیان سیراب کن:\n\n"${currentHadith.arabic_text}"\n\n${currentHadith.persian_text}\n\nتو هم یک حدیث بخوان:\n${siteUrl}`;
+
+    // ترفند ایجاد یک فیلد متنی موقت برای کپی کردن در حالت HTTP
+    const textArea = document.createElement("textarea");
+    textArea.value = shareText;
+    
+    // جلوگیری از اسکرول شدن صفحه موقع کپی
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
 
     try {
-      // تلاش برای ساخت عکس از کارت حدیث
-      if (captureRef.current) {
-        const canvas = await html2canvas(captureRef.current, {
-          scale: 2, // کیفیت بالا برای عکس
-          useCORS: true,
-          backgroundColor: '#fdfbf7', // رنگ پس‌زمینه در صورت شفاف بودن
-        });
-
-        canvas.toBlob(async (blob) => {
-          if (blob) {
-            const file = new File([blob], 'hadith-ghadir.png', { type: 'image/png' });
-
-            // بررسی اینکه آیا دستگاه قابلیت اشتراک‌گذاری عکس رو داره؟ (گوشی‌ها)
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({
-                title: 'حدیثی از حضرت علی (ع)',
-                text: captionText,
-                files: [file]
-              });
-              toast.success('آماده اشتراک‌گذاری...');
-              setIsSharing(false);
-              return;
-            }
-          }
-          // اگر نتونست عکس رو شیر کنه، میره سراغ کپی کردن متن
-          fallbackToTextShare(fullTextFallback);
-        }, 'image/png');
+      const successful = document.execCommand('copy');
+      if (successful) {
+        toast.success('متن حدیث کپی شد! حالا می‌تونی برای دوستات بفرستی.');
       } else {
-        fallbackToTextShare(fullTextFallback);
+        toast.error('خطا در کپی کردن متن.');
       }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      fallbackToTextShare(fullTextFallback);
+    } catch (err) {
+      toast.error('مرورگر شما از کپی خودکار پشتیبانی نمی‌کند.');
     }
-  };
 
-  // تابعی برای مواقعی که قابلیت اشتراک‌گذاری عکس نیست (مثل کامپیوتر)
-  const fallbackToTextShare = async (textToShare: string) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'حدیثی از حضرت علی (ع)',
-          text: textToShare,
-        });
-        toast.success('منوی اشتراک‌گذاری باز شد');
-      } catch (error) {
-        // کاربر ممکنه منو رو بسته باشه
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(textToShare);
-        toast.success('متن حدیث و لینک سایت در کلیپ‌بورد کپی شد');
-      } catch (err) {
-        toast.error('خطا در کپی کردن متن');
-      }
-    }
-    setIsSharing(false);
+    document.body.removeChild(textArea);
   };
 
   return (
@@ -202,10 +165,10 @@ const EidGhadirPage = () => {
 
                 <div className="text-center persian-text">
                   <p className="text-xl md:text-2xl font-semibold text-manuscript-900 mb-2">
-                    {isLoading ? 'در حال گشودن طومار...' : 'برای دریافت حدیث کلیک کنید'}
+                    {isLoading ? 'در حال دریافت حدیث...' : 'برای دریافت حدیث کلیک کنید'}
                   </p>
                   <p className="text-sm md:text-base text-manuscript-600">
-                    {isLoading ? 'اندکی تأمل...' : 'نامه‌ای از گنجینه حکمت'}
+                    {isLoading ? 'لطفاً کمی صبر کنید' : 'یک حدیث سهم شما'}
                   </p>
                 </div>
               </div>
@@ -218,7 +181,7 @@ const EidGhadirPage = () => {
               ref={hadithRef}
               className="w-full max-w-3xl transition-all duration-700 ease-out transform opacity-100 translate-y-0 relative animate-fade-in"
             >
-              {/* Audio Control Button (بیرون از کادر عکس قرار دادیم که تو عکس نیفته) */}
+              {/* Audio Control Button */}
               <div className="absolute -top-12 right-0 z-20">
                 <button
                   onClick={toggleAudio}
@@ -233,11 +196,7 @@ const EidGhadirPage = () => {
                 </button>
               </div>
 
-              {/* این همون بخشیه که به عکس تبدیل میشه */}
-              <div 
-                ref={captureRef}
-                className="relative islamic-border bg-gradient-to-b from-white/95 to-amber-50/95 backdrop-blur-md p-8 md:p-12 rounded-2xl shadow-2xl border border-islamic-gold-300/50"
-              >
+              <div className="relative islamic-border bg-gradient-to-b from-white/95 to-amber-50/95 backdrop-blur-md p-8 md:p-12 rounded-2xl shadow-2xl border border-islamic-gold-300/50">
                 
                 {/* Decorative Quotes */}
                 <div className="absolute top-6 right-6 text-islamic-gold-200 opacity-40 pointer-events-none">
@@ -274,22 +233,17 @@ const EidGhadirPage = () => {
                     </p>
                   </div>
                   
-                  {/* واترمارک کوچیک که فقط تو عکس دیده بشه قشنگه */}
-                  <div className="text-center mt-4 border-t border-islamic-gold-200/50 pt-4 w-full">
-                     <p className="text-xs text-islamic-gold-600 persian-text opacity-70">عید غدیر مبارک - یک حدیث سهم شما</p>
-                  </div>
                 </div>
               </div>
 
-              {/* Action Buttons (بیرون از محدوده عکس قرار دادم تا تو تصویر نیفتن) */}
+              {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full mt-6">
                 <button
                   onClick={handleShare}
-                  disabled={isSharing}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl font-persian disabled:opacity-70"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl font-persian"
                 >
-                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
-                  <span>{isSharing ? 'در حال آماده‌سازی...' : 'نشر حکمت'}</span>
+                  <Share2 className="w-5 h-5" />
+                  <span>کپی و نشر حکمت</span>
                 </button>
               </div>
 

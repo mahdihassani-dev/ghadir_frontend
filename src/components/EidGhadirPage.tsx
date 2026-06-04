@@ -37,7 +37,7 @@ const EidGhadirPage = () => {
   }, []);
 
   const fetchHadith = async (): Promise<Hadith> => {
-    const response = await fetch('https://46.8.228.63:8000/api/hadith/random/');
+    const response = await fetch('http://46.8.228.63:8000/api/hadith/random/');
     if (!response.ok) throw new Error("دریافت حدیث با مشکل مواجه شد");
     const data = await response.json();
     
